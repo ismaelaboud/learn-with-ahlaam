@@ -4,9 +4,20 @@ import { Link } from 'react-router-dom'
 const Leaderboard = () => {
   const [participants, setParticipants] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     fetchLeaderboard()
+    
+    // Check screen size and add resize listener
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+    
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    
+    return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
   const fetchLeaderboard = async () => {
@@ -62,32 +73,67 @@ const Leaderboard = () => {
 
       <div className="card">
         {participants.length > 0 ? (
-          <table className="leaderboard-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Name</th>
-                <th>Correct Answers</th>
-                <th>Total Answered</th>
-                <th>Current Streak 🔥</th>
-                <th>Best Streak</th>
-              </tr>
-            </thead>
-            <tbody>
-              {participants.map((participant, index) => (
-                <tr key={participant._id} className={getRankClass(index + 1)}>
-                  <td>
-                    {getRankEmoji(index + 1)} {index + 1}
-                  </td>
-                  <td>{participant.displayName}</td>
-                  <td className="correct">{participant.totalCorrect}</td>
-                  <td>{participant.totalAnswered}</td>
-                  <td>{participant.currentStreak}</td>
-                  <td>{participant.bestStreak}</td>
+          <>
+            {/* Desktop Table Layout */}
+            <table className="leaderboard-table desktop-only">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Name</th>
+                  <th>Correct Answers</th>
+                  <th>Total Answered</th>
+                  <th>Current Streak 🔥</th>
+                  <th>Best Streak</th>
                 </tr>
+              </thead>
+              <tbody>
+                {participants.map((participant, index) => (
+                  <tr key={participant._id} className={getRankClass(index + 1)}>
+                    <td>
+                      {getRankEmoji(index + 1)} {index + 1}
+                    </td>
+                    <td>{participant.displayName}</td>
+                    <td className="correct">{participant.totalCorrect}</td>
+                    <td>{participant.totalAnswered}</td>
+                    <td>{participant.currentStreak}</td>
+                    <td>{participant.bestStreak}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile Card Layout */}
+            <div className="mobile-leaderboard mobile-only">
+              {participants.map((participant, index) => (
+                <div key={participant._id} className={`participant-card ${getRankClass(index + 1)}`}>
+                  <div className="card-header">
+                    <div className="rank-badge">
+                      {getRankEmoji(index + 1) || `#${index + 1}`}
+                    </div>
+                    <div className="participant-name">{participant.displayName}</div>
+                  </div>
+                  <div className="card-stats">
+                    <div className="stat-item">
+                      <div className="stat-value correct">{participant.totalCorrect}</div>
+                      <div className="stat-label">Correct</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{participant.totalAnswered}</div>
+                      <div className="stat-label">Answered</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{participant.currentStreak}</div>
+                      <div className="stat-label">Streak 🔥</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{participant.bestStreak}</div>
+                      <div className="stat-label">Best</div>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         ) : (
           <div className="info-message">
             No participants yet. Be the first to answer a question!
