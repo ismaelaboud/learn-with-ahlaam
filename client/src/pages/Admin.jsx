@@ -508,27 +508,41 @@ const Admin = () => {
                   </button>
                 </div>
                 
-                {countdown && !countdown.includes('closed') && (
-                  <div className="countdown-wrapper">
-                    <p className="countdown-label">CLOSES IN</p>
-                    <div className="countdown-boxes">
-                      <div className="countdown-box">
-                        <span className="countdown-number">{Math.floor(distance / (1000 * 60 * 60)) % 24}</span>
-                        <span className="countdown-unit">h</span>
-                      </div>
-                      <span className="countdown-separator">:</span>
-                      <div className="countdown-box">
-                        <span className="countdown-number">{Math.floor(distance / (1000 * 60)) % 60}</span>
-                        <span className="countdown-unit">m</span>
-                      </div>
-                      <span className="countdown-separator">:</span>
-                      <div className="countdown-box">
-                        <span className="countdown-number">{Math.floor(distance / 1000) % 60}</span>
-                        <span className="countdown-unit">s</span>
+                {countdown && !countdown.includes('closed') && (() => {
+                  // Get current time in GMT+3
+                  const now = new Date()
+                  const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
+                  const gmt3Time = new Date(utc + (3600000 * 3))
+                  
+                  // Get reveal time in GMT+3
+                  const revealTime = new Date(activeQuestion.revealAt)
+                  const revealUtc = revealTime.getTime() + (revealTime.getTimezoneOffset() * 60000)
+                  const gmt3RevealTime = new Date(revealUtc + (3600000 * 3))
+                  
+                  const distance = gmt3RevealTime.getTime() - gmt3Time.getTime()
+                  
+                  return (
+                    <div className="countdown-wrapper">
+                      <p className="countdown-label">CLOSES IN</p>
+                      <div className="countdown-boxes">
+                        <div className="countdown-box">
+                          <span className="countdown-number">{Math.floor(distance / (1000 * 60 * 60)) % 24}</span>
+                          <span className="countdown-unit">h</span>
+                        </div>
+                        <span className="countdown-separator">:</span>
+                        <div className="countdown-box">
+                          <span className="countdown-number">{Math.floor(distance / (1000 * 60)) % 60}</span>
+                          <span className="countdown-unit">m</span>
+                        </div>
+                        <span className="countdown-separator">:</span>
+                        <div className="countdown-box">
+                          <span className="countdown-number">{Math.floor(distance / 1000) % 60}</span>
+                          <span className="countdown-unit">s</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
                 
                 {countdown && countdown.includes('closed') && (
                   <div style={{ 
