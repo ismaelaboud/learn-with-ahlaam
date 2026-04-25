@@ -56,7 +56,8 @@ const Admin = () => {
       const revealUtc = revealTime.getTime() + (revealTime.getTimezoneOffset() * 60000)
       const gmt3RevealTime = new Date(revealUtc + (3600000 * 3))
       
-      const distance = gmt3RevealTime.getTime() - gmt3Time.getTime()
+      const gmt3Now = new Date(gmt3Time.getTime())
+      const distance = gmt3RevealTime.getTime() - gmt3Now.getTime()
 
       if (distance < 0) {
         setCountdown('Question closed!')
@@ -507,18 +508,40 @@ const Admin = () => {
                   </button>
                 </div>
                 
-                {countdown && (
+                {countdown && !countdown.includes('closed') && (
+                  <div className="countdown-wrapper">
+                    <p className="countdown-label">CLOSES IN</p>
+                    <div className="countdown-boxes">
+                      <div className="countdown-box">
+                        <span className="countdown-number">{Math.floor(distance / (1000 * 60 * 60)) % 24}</span>
+                        <span className="countdown-unit">h</span>
+                      </div>
+                      <span className="countdown-separator">:</span>
+                      <div className="countdown-box">
+                        <span className="countdown-number">{Math.floor(distance / (1000 * 60)) % 60}</span>
+                        <span className="countdown-unit">m</span>
+                      </div>
+                      <span className="countdown-separator">:</span>
+                      <div className="countdown-box">
+                        <span className="countdown-number">{Math.floor(distance / 1000) % 60}</span>
+                        <span className="countdown-unit">s</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {countdown && countdown.includes('closed') && (
                   <div style={{ 
                     marginBottom: '1rem', 
-                    padding: '0.75rem', 
+                    padding: '1rem', 
                     backgroundColor: 'var(--accent)', 
                     color: 'white', 
                     borderRadius: '8px',
                     textAlign: 'center',
                     fontWeight: 'bold',
-                    fontSize: countdown === 'Question closed!' ? '1.1rem' : '1rem'
+                    fontSize: '1.2rem'
                   }}>
-                    {countdown}
+                    Question closed!
                   </div>
                 )}
                 
