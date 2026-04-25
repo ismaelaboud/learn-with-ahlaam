@@ -148,6 +148,70 @@ router.post('/question/:id/close', adminAuth, async (req, res) => {
   }
 });
 
+// PUT /api/admin/question/:id - edit an active question
+router.put('/question/:id', adminAuth, async (req, res) => {
+  try {
+    const { text, correctAnswer, correctAnswers } = req.body;
+    
+    if (!text && !correctAnswer && !correctAnswers) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field (text or correctAnswer) must be provided'
+      });
+    }
+    
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+    
+    if (question.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only active questions can be edited'
+      });
+    }
+    
+    // Update question text if provided
+    if (text) {
+      question.text = text.trim();
+    }
+    
+    // Update correct answers if provided
+    if (correctAnswer) {
+      // Handle single correct answer (convert to array)
+      question.correctAnswers = [correctAnswer.trim()];
+    } else if (correctAnswers) {
+      // Handle array of correct answers
+      if (!Array.isArray(correctAnswers) || correctAnswers.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'correctAnswers must be a non-empty array'
+        });
+      }
+      question.correctAnswers = correctAnswers.map(answer => answer.trim());
+    }
+    
+    await question.save();
+    
+    res.json({
+      success: true,
+      data: question,
+      message: 'Question updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/admin/question/:id/submissions - view all submissions for a question
 router.get('/question/:id/submissions', adminAuth, async (req, res) => {
   try {

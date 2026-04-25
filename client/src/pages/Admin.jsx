@@ -17,6 +17,11 @@ const Admin = () => {
   
   const [closing, setClosing] = useState(false)
   const [message, setMessage] = useState('')
+  
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState('')
+  const [editAnswer, setEditAnswer] = useState('')
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     // Check if admin is authenticated from localStorage
@@ -181,6 +186,67 @@ const Admin = () => {
     setActiveQuestion(null)
     setSubmissions([])
     setPastQuestions([])
+    setEditing(false)
+    setEditText('')
+    setEditAnswer('')
+  }
+
+  const handleEditQuestion = () => {
+    if (!activeQuestion) return
+    
+    setEditing(true)
+    setEditText(activeQuestion.text)
+    // Take first correct answer for editing (since backend uses array)
+    setEditAnswer(activeQuestion.correctAnswers[0] || '')
+  }
+
+  const handleUpdateQuestion = async (e) => {
+    e.preventDefault()
+    
+    if (!activeQuestion || !editText.trim() || !editAnswer.trim()) {
+      setMessage('Please fill in both fields')
+      return
+    }
+
+    setUpdating(true)
+    setMessage('')
+
+    try {
+      const response = await fetch(`/api/admin/question/${activeQuestion._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': localStorage.getItem('adminPassword')
+        },
+        body: JSON.stringify({
+          text: editText.trim(),
+          correctAnswer: editAnswer.trim()
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setMessage('Question updated successfully!')
+        setActiveQuestion(data.data)
+        setEditing(false)
+        setEditText('')
+        setEditAnswer('')
+      } else {
+        setMessage(data.message || 'Error updating question')
+      }
+    } catch (error) {
+      console.error('Error updating question:', error)
+      setMessage('Error updating question')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditing(false)
+    setEditText('')
+    setEditAnswer('')
   }
 
   const formatDate = (dateString) => {
@@ -259,7 +325,57 @@ const Admin = () => {
         
         {activeQuestion ? (
           <div>
-            <div className="question-text">{activeQuestion.text}</div>
+            {editing ? (
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <h3>Edit Question</h3>
+                <form onSubmit={handleUpdateQuestion}>
+                  <div className="form-group">
+                    <label htmlFor="editText">Question Text</label>
+                    <textarea
+                      id="editText"
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      placeholder="Enter the question text"
+                      rows={3}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="editAnswer">Correct Answer</label>
+                    <input
+                      type="text"
+                      id="editAnswer"
+                      value={editAnswer}
+                      onChange={(e) => setEditAnswer(e.target.value)}
+                      placeholder="Enter the correct answer"
+                      required
+                    />
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button type="submit" className="btn btn-primary" disabled={updating}>
+                      {updating ? 'Updating...' : 'Save'}
+                    </button>
+                    <button type="button" onClick={handleCancelEdit} className="btn btn-secondary" disabled={updating}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div className="question-text" style={{ flex: 1 }}>{activeQuestion.text}</div>
+                <button 
+                  onClick={handleEditQuestion} 
+                  className="btn btn-secondary" 
+                  style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}
+                  disabled={editing}
+                >
+                  ✏️ Edit
+                </button>
+              </div>
+            )}
             
             <h3>Submissions ({submissions.length})</h3>
             <div className="submission-list">
@@ -277,14 +393,15 @@ const Admin = () => {
               )}
             </div>
             
-            <button 
-              onClick={handleCloseQuestion} 
-              className="btn btn-danger" 
-              disabled={closing}
-              style={{ marginTop: '1rem' }}
-            >
-              {closing ? 'Closing...' : 'Close & Reveal Answer'}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button 
+                onClick={handleCloseQuestion} 
+                className="btn btn-danger" 
+                disabled={closing || editing}
+              >
+                {closing ? 'Closing...' : 'Close & Reveal Answer'}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="info-message">
