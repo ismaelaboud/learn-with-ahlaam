@@ -22,6 +22,14 @@ const questionSchema = new mongoose.Schema({
   },
   revealedAt: {
     type: Date
+  },
+  revealAt: {
+    type: Date
+  },
+  timerStatus: {
+    type: String,
+    enum: ['pending', 'expired'],
+    default: 'pending'
   }
 });
 

@@ -13,6 +13,7 @@ const Admin = () => {
   
   const [newQuestion, setNewQuestion] = useState('')
   const [newAnswer, setNewAnswer] = useState('')
+  const [newRevealAt, setNewRevealAt] = useState('')
   const [creating, setCreating] = useState(false)
   
   const [closing, setClosing] = useState(false)
@@ -22,6 +23,11 @@ const Admin = () => {
   const [editText, setEditText] = useState('')
   const [editAnswer, setEditAnswer] = useState('')
   const [updating, setUpdating] = useState(false)
+  
+  const [countdown, setCountdown] = useState('')
+  const [showTimerModal, setShowTimerModal] = useState(false)
+  const [timerRevealAt, setTimerRevealAt] = useState('')
+  const [updatingTimer, setUpdatingTimer] = useState(false)
 
   useEffect(() => {
     // Check if admin is authenticated from localStorage
@@ -32,6 +38,55 @@ const Admin = () => {
     }
   }, [])
 
+  // Countdown timer effect
+  useEffect(() => {
+    if (!activeQuestion || !activeQuestion.revealAt) {
+      setCountdown('')
+      return
+    }
+
+    const updateCountdown = () => {
+      // Get current time in GMT+3
+      const now = new Date()
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
+      const gmt3Time = new Date(utc + (3600000 * 3))
+      
+      // Get reveal time in GMT+3
+      const revealTime = new Date(activeQuestion.revealAt)
+      const revealUtc = revealTime.getTime() + (revealTime.getTimezoneOffset() * 60000)
+      const gmt3RevealTime = new Date(revealUtc + (3600000 * 3))
+      
+      const distance = gmt3RevealTime.getTime() - gmt3Time.getTime()
+
+      if (distance < 0) {
+        setCountdown('Question closed!')
+        // Auto-refresh when countdown hits zero
+        setTimeout(() => {
+          fetchAdminData()
+        }, 1000)
+        return
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+
+      let countdownText = ''
+      if (days > 0) countdownText += `${days}d `
+      if (hours > 0 || days > 0) countdownText += `${hours}h `
+      if (minutes > 0 || hours > 0 || days > 0) countdownText += `${minutes}m `
+      countdownText += `${seconds}s`
+
+      setCountdown(`Closes in: ${countdownText}`)
+    }
+
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
+
+    return () => clearInterval(interval)
+  }, [activeQuestion])
+
   const fetchAdminData = async () => {
     try {
       // Fetch active question
@@ -39,6 +94,9 @@ const Admin = () => {
       const activeData = await activeResponse.json()
       
       if (activeData.success && activeData.data) {
+        if (activeData.data.revealAt) {
+          activeData.data.revealAt = new Date(activeData.data.revealAt)
+        }
         setActiveQuestion(activeData.data)
         
         // Fetch submissions for active question
@@ -111,24 +169,35 @@ const Admin = () => {
     setMessage('')
 
     try {
+      const requestBody = {
+        text: newQuestion.trim(),
+        correctAnswer: newAnswer.trim()
+      }
+      
+      // Add revealAt if provided
+      if (newRevealAt.trim()) {
+        requestBody.revealAt = newRevealAt.trim()
+      }
+
       const response = await fetch('/api/admin/question', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-password': localStorage.getItem('adminPassword')
         },
-        body: JSON.stringify({
-          text: newQuestion.trim(),
-          correctAnswer: newAnswer.trim()
-        })
+        body: JSON.stringify(requestBody)
       })
 
       const data = await response.json()
 
       if (data.success) {
+        if (data.data.revealAt) {
+          data.data.revealAt = new Date(data.data.revealAt)
+        }
         setMessage('Question created successfully!')
         setNewQuestion('')
         setNewAnswer('')
+        setNewRevealAt('')
         setActiveQuestion(data.data)
         setSubmissions([])
       } else {
@@ -249,6 +318,67 @@ const Admin = () => {
     setEditAnswer('')
   }
 
+  const handleSetTimer = () => {
+    if (!activeQuestion) return
+    
+    // Set current revealAt if exists, otherwise empty
+    const currentRevealAt = activeQuestion.revealAt 
+      ? new Date(activeQuestion.revealAt).toISOString().slice(0, 16)
+      : ''
+    
+    setTimerRevealAt(currentRevealAt)
+    setShowTimerModal(true)
+  }
+
+  const handleUpdateTimer = async (e) => {
+    e.preventDefault()
+    
+    if (!activeQuestion || !timerRevealAt.trim()) {
+      setMessage('Please select a future date and time')
+      return
+    }
+
+    setUpdatingTimer(true)
+    setMessage('')
+
+    try {
+      const response = await fetch(`/api/admin/question/${activeQuestion._id}/timer`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': localStorage.getItem('adminPassword')
+        },
+        body: JSON.stringify({
+          revealAt: timerRevealAt.trim()
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        if (data.data.revealAt) {
+          data.data.revealAt = new Date(data.data.revealAt)
+        }
+        setMessage('Timer updated successfully!')
+        setActiveQuestion(data.data)
+        setShowTimerModal(false)
+        setTimerRevealAt('')
+      } else {
+        setMessage(data.message || 'Error updating timer')
+      }
+    } catch (error) {
+      console.error('Error updating timer:', error)
+      setMessage('Error updating timer')
+    } finally {
+      setUpdatingTimer(false)
+    }
+  }
+
+  const handleCancelTimer = () => {
+    setShowTimerModal(false)
+    setTimerRevealAt('')
+  }
+
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -364,16 +494,44 @@ const Admin = () => {
                 </form>
               </div>
             ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                <div className="question-text" style={{ flex: 1 }}>{activeQuestion.text}</div>
-                <button 
-                  onClick={handleEditQuestion} 
-                  className="btn btn-secondary" 
-                  style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}
-                  disabled={editing}
-                >
-                  ✏️ Edit
-                </button>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div className="question-text" style={{ flex: 1 }}>{activeQuestion.text}</div>
+                  <button 
+                    onClick={handleEditQuestion} 
+                    className="btn btn-secondary" 
+                    style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}
+                    disabled={editing}
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+                
+                {countdown && (
+                  <div style={{ 
+                    marginBottom: '1rem', 
+                    padding: '0.75rem', 
+                    backgroundColor: 'var(--accent)', 
+                    color: 'white', 
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    fontSize: countdown === 'Question closed!' ? '1.1rem' : '1rem'
+                  }}>
+                    {countdown}
+                  </div>
+                )}
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <button 
+                    onClick={handleSetTimer} 
+                    className="btn btn-secondary" 
+                    disabled={editing}
+                    style={{ marginRight: '1rem' }}
+                  >
+                    ⏰ Set / Update Timer
+                  </button>
+                </div>
               </div>
             )}
             
@@ -444,6 +602,20 @@ const Admin = () => {
               />
             </div>
             
+            <div className="form-group">
+              <label htmlFor="newRevealAt">Auto-close at (optional)</label>
+              <input
+                type="datetime-local"
+                id="newRevealAt"
+                value={newRevealAt}
+                onChange={(e) => setNewRevealAt(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+              <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                Set a future date and time for the question to auto-close
+              </small>
+            </div>
+            
             <button type="submit" className="btn btn-primary" disabled={creating}>
               {creating ? 'Creating...' : 'Post Question'}
             </button>
@@ -472,6 +644,51 @@ const Admin = () => {
           </div>
         )}
       </div>
+
+      {/* Timer Modal */}
+      {showTimerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ maxWidth: '400px', width: '90%' }}>
+            <h3>Set Timer</h3>
+            <form onSubmit={handleUpdateTimer}>
+              <div className="form-group">
+                <label htmlFor="timerRevealAt">Auto-close at</label>
+                <input
+                  type="datetime-local"
+                  id="timerRevealAt"
+                  value={timerRevealAt}
+                  onChange={(e) => setTimerRevealAt(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  required
+                />
+                <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                  Set a future date and time for the question to auto-close
+                </small>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={updatingTimer}>
+                  {updatingTimer ? 'Updating...' : 'Set Timer'}
+                </button>
+                <button type="button" onClick={handleCancelTimer} className="btn btn-secondary" disabled={updatingTimer}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

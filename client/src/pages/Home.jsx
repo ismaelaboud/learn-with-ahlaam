@@ -9,10 +9,64 @@ const Home = () => {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [countdown, setCountdown] = useState('')
+  const [isExpired, setIsExpired] = useState(false)
 
   useEffect(() => {
     fetchActiveQuestion()
   }, [])
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!question || !question.revealAt) {
+      setCountdown('')
+      setIsExpired(false)
+      return
+    }
+
+    const updateCountdown = () => {
+      // Get current time in GMT+3
+      const now = new Date()
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
+      const gmt3Time = new Date(utc + (3600000 * 3))
+      
+      // Get reveal time in GMT+3
+      const revealTime = new Date(question.revealAt)
+      const revealUtc = revealTime.getTime() + (revealTime.getTimezoneOffset() * 60000)
+      const gmt3RevealTime = new Date(revealUtc + (3600000 * 3))
+      
+      const distance = gmt3RevealTime.getTime() - gmt3Time.getTime()
+
+      if (distance < 0) {
+        setCountdown('Submissions closed!')
+        setIsExpired(true)
+        // Auto-refresh when countdown hits zero
+        setTimeout(() => {
+          fetchActiveQuestion()
+        }, 1000)
+        return
+      }
+
+      setIsExpired(false)
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+
+      let countdownText = ''
+      if (days > 0) countdownText += `${days}d `
+      if (hours > 0 || days > 0) countdownText += `${hours}h `
+      if (minutes > 0 || hours > 0 || days > 0) countdownText += `${minutes}m `
+      countdownText += `${seconds}s`
+
+      setCountdown(`Time left: ${countdownText}`)
+    }
+
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
+
+    return () => clearInterval(interval)
+  }, [question])
 
   const fetchActiveQuestion = async () => {
     try {
@@ -20,7 +74,11 @@ const Home = () => {
       const data = await response.json()
       
       if (data.success && data.data) {
+        if (data.data.revealAt) {
+          data.data.revealAt = new Date(data.data.revealAt) // Convert to Date object
+        }
         setQuestion(data.data)
+        console.log('Fetched question:', data.data)
         
         // Check if user has already submitted
         const savedName = localStorage.getItem('participantName')
@@ -101,7 +159,22 @@ const Home = () => {
         <div className="card">
           <div className="question-text">{question.text}</div>
           
-          {!hasSubmitted ? (
+          {countdown && (
+            <div style={{ 
+              marginBottom: '1rem', 
+              padding: '0.75rem', 
+              backgroundColor: isExpired ? 'var(--accent)' : 'var(--primary)', 
+              color: 'white', 
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '1rem'
+            }}>
+              {countdown}
+            </div>
+          )}
+          
+          {!hasSubmitted && !isExpired ? (
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="name">Your Name</label>
@@ -131,9 +204,18 @@ const Home = () => {
                 {submitting ? 'Submitting...' : 'Submit Answer'}
               </button>
             </form>
-          ) : (
+          ) : hasSubmitted ? (
             <div className="success-message">
               You already answered today! Check the leaderboard to see how you're doing.
+            </div>
+          ) : (
+            <div className="info-message" style={{ textAlign: 'center', padding: '1rem' }}>
+              Submissions closed! Check the leaderboard for results 🎉
+              <div style={{ marginTop: '1rem' }}>
+                <Link to="/leaderboard" className="btn btn-primary">
+                  View Leaderboard
+                </Link>
+              </div>
             </div>
           )}
           

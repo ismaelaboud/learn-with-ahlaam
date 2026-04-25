@@ -22,7 +22,7 @@ const fuzzyMatch = (answer1, answer2) => {
 // POST /api/admin/question - create new question
 router.post('/question', adminAuth, async (req, res) => {
   try {
-    const { text, correctAnswer } = req.body;
+    const { text, correctAnswer, revealAt } = req.body;
     
     if (!text || !correctAnswer) {
       return res.status(400).json({
@@ -41,10 +41,32 @@ router.post('/question', adminAuth, async (req, res) => {
       });
     }
     
-    const question = new Question({
+    const questionData = {
       text: text.trim(),
       correctAnswer: correctAnswer.trim()
-    });
+    };
+    
+    // Add revealAt if provided
+    if (revealAt) {
+      const revealDate = new Date(revealAt);
+      if (isNaN(revealDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid revealAt datetime format'
+        });
+      }
+      
+      if (revealDate <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'revealAt must be in the future'
+        });
+      }
+      
+      questionData.revealAt = revealDate;
+    }
+    
+    const question = new Question(questionData);
     
     await question.save();
     
@@ -202,6 +224,68 @@ router.put('/question/:id', adminAuth, async (req, res) => {
       success: true,
       data: question,
       message: 'Question updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/admin/question/:id/timer - set or update timer on active question
+router.put('/question/:id/timer', adminAuth, async (req, res) => {
+  try {
+    const { revealAt } = req.body;
+    
+    if (!revealAt) {
+      return res.status(400).json({
+        success: false,
+        message: 'revealAt datetime is required'
+      });
+    }
+    
+    const revealDate = new Date(revealAt);
+    if (isNaN(revealDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid revealAt datetime format'
+      });
+    }
+    
+    if (revealDate <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'revealAt must be in the future'
+      });
+    }
+    
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+    
+    if (question.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only active questions can have a timer set'
+      });
+    }
+    
+    question.revealAt = revealDate;
+    question.timerStatus = 'pending';
+    
+    await question.save();
+    
+    res.json({
+      success: true,
+      data: question,
+      message: 'Timer updated successfully'
     });
   } catch (error) {
     res.status(500).json({

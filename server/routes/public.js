@@ -17,12 +17,13 @@ router.get('/question/active', async (req, res) => {
       });
     }
     
-    // Return question without correctAnswer
+    // Return question without correctAnswer but with revealAt for timer functionality
     const questionData = {
       _id: activeQuestion._id,
       text: activeQuestion.text,
       status: activeQuestion.status,
-      createdAt: activeQuestion.createdAt
+      createdAt: activeQuestion.createdAt,
+      revealAt: activeQuestion.revealAt
     };
     
     res.json({
