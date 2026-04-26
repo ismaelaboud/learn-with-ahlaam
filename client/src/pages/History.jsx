@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import ChatRoom from '../components/ChatRoom'
 
 const History = () => {
   const [questions, setQuestions] = useState([])
@@ -7,10 +8,31 @@ const History = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(null)
   const [questionDetails, setQuestionDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [openChatRoom, setOpenChatRoom] = useState(null)
+  const [messageCounts, setMessageCounts] = useState({})
 
   useEffect(() => {
     fetchHistory()
   }, [])
+
+  const fetchMessageCounts = async () => {
+    const counts = {};
+    
+    for (const question of questions) {
+      try {
+        const response = await fetch(`/api/messages/${question._id}`);
+        const data = await response.json();
+        if (data.success) {
+          counts[question._id] = data.data.length;
+        }
+      } catch (error) {
+        console.error(`Error fetching message count for question ${question._id}:`, error);
+        counts[question._id] = 0;
+      }
+    }
+    
+    setMessageCounts(counts);
+  };
 
   const fetchHistory = async () => {
     try {
@@ -25,7 +47,14 @@ const History = () => {
     } finally {
       setLoading(false)
     }
-  }
+  };
+
+  // Fetch message counts when questions are loaded
+  useEffect(() => {
+    if (questions.length > 0) {
+      fetchMessageCounts();
+    }
+  }, [questions]);
 
   const fetchQuestionDetails = async (questionId) => {
     setLoadingDetails(true)
@@ -51,6 +80,21 @@ const History = () => {
       setSelectedQuestion(question)
       fetchQuestionDetails(question._id)
     }
+  }
+
+  const toggleChatRoom = (questionId) => {
+    if (openChatRoom === questionId) {
+      setOpenChatRoom(null)
+    } else {
+      setOpenChatRoom(questionId)
+    }
+  }
+
+  const updateMessageCount = (questionId, count) => {
+    setMessageCounts(prev => ({
+      ...prev,
+      [questionId]: count
+    }))
   }
 
   const formatDate = (dateString) => {
@@ -106,6 +150,37 @@ const History = () => {
                     <div className="stat-label">Incorrect</div>
                   </div>
                 </div>
+
+                {/* Discussion Button */}
+                <div style={{ marginTop: '1rem' }}>
+                  <button
+                    onClick={() => toggleChatRoom(question._id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      border: '1px solid #00d4aa',
+                      borderRadius: '0.25rem',
+                      backgroundColor: openChatRoom === question._id ? '#00d4aa' : 'transparent',
+                      color: openChatRoom === question._id ? '#0a0f0a' : '#00d4aa',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    💬 Discussion ({messageCounts[question._id] || 0})
+                  </button>
+                </div>
+
+                {/* Chat Room */}
+                {openChatRoom === question._id && (
+                  <ChatRoom 
+                    questionId={question._id} 
+                    questionStatus={question.status}
+                    onMessageCountChange={(count) => updateMessageCount(question._id, count)}
+                  />
+                )}
 
                 {selectedQuestion?._id === question._id && (
                   <div style={{ marginTop: '1.5rem' }}>

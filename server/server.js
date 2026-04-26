@@ -3,15 +3,32 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cron = require('node-cron');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const Question = require('./models/Question');
 const Submission = require('./models/Submission');
 const Participant = require('./models/Participant');
+const Message = require('./models/Message');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Create HTTP server for Socket.io
+const server = http.createServer(app);
+
+// Initialize Socket.io with CORS
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Make io instance available to routes
+app.set('io', io);
 
 // Middleware
 app.use(cors());
@@ -109,6 +126,53 @@ cron.schedule('* * * * *', autoCloseQuestions);
 
 console.log('Background job scheduled: Auto-close questions every minute');
 
+// Socket.io event handlers
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('joinRoom', async ({ questionId }) => {
+    try {
+      socket.join(questionId);
+      console.log(`User ${socket.id} joined room ${questionId}`);
+    } catch (error) {
+      console.error('Error joining room:', error);
+    }
+  });
+
+  socket.on('sendMessage', async ({ questionId, senderName, text }) => {
+    try {
+      const message = new Message({
+        questionId,
+        senderName,
+        text
+      });
+      
+      await message.save();
+      
+      // Broadcast to all clients in the room
+      io.to(questionId).emit('newMessage', message);
+      
+      console.log(`Message sent in room ${questionId} by ${senderName}`);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  socket.on('leaveRoom', ({ questionId }) => {
+    try {
+      socket.leave(questionId);
+      console.log(`User ${socket.id} left room ${questionId}`);
+    } catch (error) {
+      console.error('Error leaving room:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
 // Client is deployed separately on Vercel, no static file serving needed
 
 // Error handling middleware
@@ -128,6 +192,6 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

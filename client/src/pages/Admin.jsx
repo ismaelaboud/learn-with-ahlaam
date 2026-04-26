@@ -28,12 +28,16 @@ const Admin = () => {
   const [showTimerModal, setShowTimerModal] = useState(false)
   const [timerRevealAt, setTimerRevealAt] = useState('')
   const [updatingTimer, setUpdatingTimer] = useState(false)
+  const [messages, setMessages] = useState({})
+  const [adminPassword, setAdminPassword] = useState('')
 
   useEffect(() => {
     // Check if admin is authenticated from localStorage
     const savedAuth = localStorage.getItem('adminAuth')
-    if (savedAuth === 'true') {
+    const savedPassword = localStorage.getItem('adminPassword')
+    if (savedAuth === 'true' && savedPassword) {
       setIsAuthenticated(true)
+      setAdminPassword(savedPassword)
       fetchAdminData()
     }
   }, [])
@@ -88,6 +92,25 @@ const Admin = () => {
     return () => clearInterval(interval)
   }, [activeQuestion])
 
+  const fetchMessages = async () => {
+    const messageData = {}
+    
+    for (const question of pastQuestions) {
+      try {
+        const response = await fetch(`/api/messages/${question._id}`)
+        const data = await response.json()
+        if (data.success) {
+          messageData[question._id] = data.data
+        }
+      } catch (error) {
+        console.error(`Error fetching messages for question ${question._id}:`, error)
+        messageData[question._id] = []
+      }
+    }
+    
+    setMessages(messageData)
+  }
+
   const fetchAdminData = async () => {
     try {
       // Fetch active question
@@ -103,7 +126,7 @@ const Admin = () => {
         // Fetch submissions for active question
         const submissionsResponse = await fetch(`/api/admin/question/${activeData.data._id}/submissions`, {
           headers: {
-            'x-admin-password': localStorage.getItem('adminPassword')
+            'x-admin-password': adminPassword
           }
         })
         const submissionsData = await submissionsResponse.json()
@@ -124,6 +147,13 @@ const Admin = () => {
       console.error('Error fetching admin data:', error)
     }
   }
+
+  // Fetch messages when past questions are loaded
+  useEffect(() => {
+    if (pastQuestions.length > 0) {
+      fetchMessages()
+    }
+  }, [pastQuestions])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -146,6 +176,7 @@ const Admin = () => {
       } else if (response.status === 400) {
         // Authentication successful, but request failed (expected)
         setIsAuthenticated(true)
+        setAdminPassword(password)
         localStorage.setItem('adminAuth', 'true')
         localStorage.setItem('adminPassword', password)
         fetchAdminData()
@@ -375,16 +406,37 @@ const Admin = () => {
     }
   }
 
-  const handleCancelTimer = () => {
-    setShowTimerModal(false)
-    setTimerRevealAt('')
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      const response = await fetch(`/api/admin/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-password': adminPassword
+        }
+      })
+
+      if (response.ok) {
+        // Remove message from local state
+        setMessages(prev => {
+          const newMessages = { ...prev }
+          for (const questionId in newMessages) {
+            newMessages[questionId] = newMessages[questionId].filter(msg => msg._id !== messageId)
+          }
+          return newMessages
+        })
+      } else {
+        console.error('Failed to delete message')
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error)
+    }
   }
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   }
@@ -672,6 +724,74 @@ const Admin = () => {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   {formatDate(question.revealedAt)} - {question.submissionStats.correct}/{question.submissionStats.total} correct
                 </p>
+                
+                {/* Messages Section */}
+                {messages[question._id] && messages[question._id].length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <h5 style={{ color: '#00d4aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                      💬 Discussion Messages ({messages[question._id].length})
+                    </h5>
+                    <div style={{ 
+                      maxHeight: '200px', 
+                      overflowY: 'auto',
+                      backgroundColor: '#0f1f1a',
+                      padding: '0.5rem',
+                      borderRadius: '0.25rem',
+                      border: '1px solid #2a4d3a'
+                    }}>
+                      {messages[question._id].map((message) => (
+                        <div key={message._id} style={{
+                          padding: '0.5rem',
+                          marginBottom: '0.5rem',
+                          backgroundColor: '#1a2f2a',
+                          borderRadius: '0.25rem',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 'bold', color: '#00d4aa', fontSize: '0.8rem' }}>
+                              {message.senderName}
+                            </div>
+                            <div style={{ color: 'white', fontSize: '0.8rem' }}>
+                              {message.text}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                              {formatDate(message.createdAt)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteMessage(message._id)}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              border: 'none',
+                              borderRadius: '0.25rem',
+                              backgroundColor: '#dc2626',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '0.7rem',
+                              marginLeft: '0.5rem'
+                            }}
+                            title="Delete message"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {(!messages[question._id] || messages[question._id].length === 0) && (
+                  <div style={{ 
+                    marginTop: '0.5rem', 
+                    color: '#6b7280', 
+                    fontSize: '0.8rem',
+                    fontStyle: 'italic' 
+                  }}>
+                    No discussion messages for this question
+                  </div>
+                )}
               </div>
             ))}
           </div>

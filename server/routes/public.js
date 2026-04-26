@@ -3,6 +3,7 @@ const router = express.Router();
 const Question = require('../models/Question');
 const Submission = require('../models/Submission');
 const Participant = require('../models/Participant');
+const Message = require('../models/Message');
 
 // GET /api/question/active - returns active question (WITHOUT correctAnswer field)
 router.get('/question/active', async (req, res) => {
@@ -231,6 +232,28 @@ router.get('/questions/history', async (req, res) => {
           pages: Math.ceil(total / limit)
         }
       }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/messages/:questionId - fetch all messages for a question
+router.get('/messages/:questionId', async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    
+    const messages = await Message.find({ questionId })
+      .sort({ createdAt: 1 })
+      .select('senderName text createdAt');
+    
+    res.json({
+      success: true,
+      data: messages
     });
   } catch (error) {
     res.status(500).json({

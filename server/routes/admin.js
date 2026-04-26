@@ -3,6 +3,7 @@ const router = express.Router();
 const Question = require('../models/Question');
 const Submission = require('../models/Submission');
 const Participant = require('../models/Participant');
+const Message = require('../models/Message');
 const adminAuth = require('../middleware/adminAuth');
 
 // Helper function for fuzzy matching
@@ -317,6 +318,41 @@ router.get('/question/:id/submissions', adminAuth, async (req, res) => {
         question,
         submissions
       }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/admin/messages/:messageId - delete a message
+router.delete('/messages/:messageId', adminAuth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+    
+    await Message.findByIdAndDelete(messageId);
+    
+    // Get io instance from app and broadcast messageDeleted event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(message.questionId.toString()).emit('messageDeleted', { messageId });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Message deleted successfully'
     });
   } catch (error) {
     res.status(500).json({
