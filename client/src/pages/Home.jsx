@@ -105,6 +105,8 @@ const Home = () => {
       console.error('Error fetching question by ID:', error)
       // Fall back to active question
       fetchActiveQuestion()
+    } finally {
+      setLoading(false)
     }
   }
 
