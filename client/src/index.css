@@ -560,6 +560,269 @@ textarea:focus {
   color: #ff6b6b;
 }
 
+/* Share Modal Styles */
+.share-section {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.share-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #00d4aa;
+  background: transparent;
+  color: #00d4aa;
+  border-radius: 25px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0 auto;
+}
+
+.share-trigger-btn:hover {
+  background: rgba(0, 212, 170, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 212, 170, 0.2);
+}
+
+.share-icon {
+  font-size: 1.2rem;
+}
+
+/* Share Modal Backdrop */
+.share-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Share Modal */
+.share-modal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #0a1f2e;
+  border-top: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: 20px 20px 0 0;
+  z-index: 1001;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Modal Header */
+.share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem;
+}
+
+.share-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.share-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.share-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+/* Question Preview */
+.share-modal-preview {
+  padding: 0 1.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* Divider */
+.share-modal-divider {
+  height: 1px;
+  background: rgba(0, 212, 170, 0.2);
+  margin: 0 1.5rem;
+}
+
+/* Share Options */
+.share-options {
+  padding: 1rem 0;
+}
+
+.share-option-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  gap: 1rem;
+}
+
+.share-option-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.share-option-row.share-option-copied {
+  background: rgba(0, 212, 170, 0.1);
+}
+
+.share-option-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.share-option-whatsapp {
+  background: #25D366;
+}
+
+.share-option-facebook {
+  background: #1877F2;
+}
+
+.share-option-instagram {
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+}
+
+.share-option-copy {
+  background: #00d4aa;
+}
+
+.share-option-content {
+  flex: 1;
+  text-align: left;
+}
+
+.share-option-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.share-option-desc {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.share-option-chevron {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Instagram Toast */
+.instagram-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1rem 1.5rem;
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Desktop Modal Styles */
+@media (min-width: 769px) {
+  .share-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    bottom: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 212, 170, 0.2);
+    max-height: 80vh;
+    animation: modalFadeIn 0.3s ease-out;
+  }
+  
+  .share-modal-header {
+    padding: 1.5rem;
+  }
+  
+  .share-modal-preview {
+    padding: 0 1.5rem 1rem;
+  }
+  
+  .share-modal-divider {
+    margin: 0 1.5rem;
+  }
+  
+  .share-options {
+    padding: 1rem 1.5rem;
+  }
+  
+  .share-option-row {
+    padding: 1rem 0;
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Desktop Responsive Styles */
 @media (min-width: 769px) {
   .desktop-only {

@@ -5,6 +5,40 @@ const Submission = require('../models/Submission');
 const Participant = require('../models/Participant');
 const Message = require('../models/Message');
 
+// GET /api/question/:id - returns question by ID (WITHOUT correctAnswer field)
+router.get('/question/:id', async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+    
+    // Return question without correctAnswer but with revealAt for timer functionality
+    const questionData = {
+      _id: question._id,
+      text: question.text,
+      status: question.status,
+      createdAt: question.createdAt,
+      revealAt: question.revealAt
+    };
+    
+    res.json({
+      success: true,
+      data: questionData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/question/active - returns active question (WITHOUT correctAnswer field)
 router.get('/question/active', async (req, res) => {
   try {
