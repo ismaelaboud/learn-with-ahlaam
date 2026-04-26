@@ -82,7 +82,7 @@ const Home = () => {
 
   const fetchQuestionById = async (questionId) => {
     try {
-      const response = await fetch(`/api/question/${questionId}`)
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/question/${questionId}`)
       const data = await response.json()
       
       if (data.success && data.data) {
@@ -110,7 +110,7 @@ const Home = () => {
 
   const fetchActiveQuestion = async () => {
     try {
-      const response = await fetch('/api/question/active')
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/question/active`)
       const data = await response.json()
       
       if (data.success && data.data) {
@@ -148,7 +148,7 @@ const Home = () => {
     setMessage('')
 
     try {
-      const response = await fetch(`/api/question/${question._id}/submit`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/question/${question._id}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
