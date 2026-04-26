@@ -37,14 +37,14 @@ const ChatRoom = ({ questionId, questionStatus }) => {
       return;
     }
 
-    const newSocket = io(API_BASE_URL.replace('/api', ''));
+    const newSocket = io(API_BASE_URL);
     setSocket(newSocket);
     socketRef.current = newSocket;
 
     // Fetch existing messages
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/messages/${questionId}`);
+        const response = await fetch(`${API_BASE_URL}/api/messages/${questionId}`);
         const data = await response.json();
         if (data.success) {
           setMessages(data.data);
