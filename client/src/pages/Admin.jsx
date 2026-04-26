@@ -126,7 +126,7 @@ const Admin = () => {
         // Fetch submissions for active question
         const submissionsResponse = await fetch(`/api/admin/question/${activeData.data._id}/submissions`, {
           headers: {
-            'x-admin-password': adminPassword
+            'x-admin-password': localStorage.getItem('adminPassword')
           }
         })
         const submissionsData = await submissionsResponse.json()
