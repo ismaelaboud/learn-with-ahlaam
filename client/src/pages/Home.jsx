@@ -147,7 +147,12 @@ const Home = () => {
 
   return (
     <div className="container">
-      <h1>Learn with Ahlaam</h1>
+      <div className="header">
+        <Link to="/" className="logo-link">
+          <img src="/logo.png" alt="Learn with Ahlaam" className="logo" />
+        </Link>
+        <h1>Learn with Ahlaam</h1>
+      </div>
       
       <nav className="nav-links">
         <Link to="/" className="active">Today's Question</Link>
