@@ -50,13 +50,52 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/learn-wit
 const fuzzyMatch = (answer1, answer2) => {
   const a1 = answer1.trim().toLowerCase();
   const a2 = answer2.trim().toLowerCase();
-  
+
   // Exact match
   if (a1 === a2) return true;
-  
-  // Partial match - one contains the other
+
+  // One contains the other
   if (a1.includes(a2) || a2.includes(a1)) return true;
-  
+
+  // Remove common punctuation and compare
+  const clean1 = a1.replace(/[^a-z0-9\s]/g, '').trim();
+  const clean2 = a2.replace(/[^a-z0-9\s]/g, '').trim();
+  if (clean1 === clean2) return true;
+  if (clean1.includes(clean2) || clean2.includes(clean1)) return true;
+
+  // Levenshtein distance for typo tolerance
+  const levenshtein = (s1, s2) => {
+    const m = s1.length;
+    const n = s2.length;
+    const dp = Array.from({ length: m + 1 }, (_, i) =>
+      Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+    );
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = s1[i-1] === s2[j-1]
+          ? dp[i-1][j-1]
+          : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+      }
+    }
+    return dp[m][n];
+  };
+
+  const distance = levenshtein(clean1, clean2);
+  const maxLen = Math.max(clean1.length, clean2.length);
+
+  // Allow up to 30% character difference
+  // e.g. "abubakar" vs "abu bakar" or "abubakr" → correct
+  if (maxLen > 0 && distance / maxLen <= 0.3) return true;
+
+  // Word by word matching — if most words match consider correct
+  const words1 = clean1.split(/\s+/);
+  const words2 = clean2.split(/\s+/);
+  const commonWords = words1.filter(w => 
+    words2.some(w2 => w === w2 || levenshtein(w, w2) <= 1)
+  );
+  const matchRatio = commonWords.length / Math.max(words1.length, words2.length);
+  if (matchRatio >= 0.7) return true;
+
   return false;
 };
 
