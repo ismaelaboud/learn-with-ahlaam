@@ -62,7 +62,7 @@ const fuzzyMatch = (answer1, answer2) => {
 // POST /api/admin/question - create new question
 router.post('/question', adminAuth, async (req, res) => {
   try {
-    const { text, correctAnswer, revealAt } = req.body;
+    const { text, correctAnswer, revealAt, scheduledFor } = req.body;
     
     if (!text || !correctAnswer) {
       return res.status(400).json({
@@ -73,13 +73,6 @@ router.post('/question', adminAuth, async (req, res) => {
     
     // Check if there's already an active question
     const activeQuestion = await Question.findOne({ status: 'active' });
-    
-    if (activeQuestion) {
-      return res.status(400).json({
-        success: false,
-        message: 'There is already an active question. Close it first.'
-      });
-    }
     
     const questionData = {
       text: text.trim(),
@@ -104,6 +97,37 @@ router.post('/question', adminAuth, async (req, res) => {
       }
       
       questionData.revealAt = revealDate;
+    }
+    
+    // Handle scheduling logic
+    if (scheduledFor) {
+      const scheduledDate = new Date(scheduledFor);
+      if (isNaN(scheduledDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid scheduledFor datetime format'
+        });
+      }
+      
+      if (scheduledDate <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'scheduledFor must be in the future'
+        });
+      }
+      
+      questionData.scheduledFor = scheduledDate;
+      questionData.status = 'scheduled';
+    } else {
+      // No scheduledFor provided
+      if (activeQuestion) {
+        // There's an active question, schedule this one for after it closes
+        questionData.status = 'scheduled';
+        questionData.scheduledFor = null; // Will go live after current question closes
+      } else {
+        // No active question, make this one active immediately
+        questionData.status = 'active';
+      }
     }
     
     const question = new Question(questionData);
@@ -357,6 +381,117 @@ router.get('/question/:id/submissions', adminAuth, async (req, res) => {
         question,
         submissions
       }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/admin/questions/scheduled - get all scheduled questions
+router.get('/questions/scheduled', adminAuth, async (req, res) => {
+  try {
+    const scheduledQuestions = await Question.find({ status: 'scheduled' })
+      .sort({ scheduledFor: 1, createdAt: 1 });
+    
+    res.json({
+      success: true,
+      data: scheduledQuestions
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/admin/question/:id - delete a scheduled question
+router.delete('/question/:id', adminAuth, async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+    
+    if (question.status !== 'scheduled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only scheduled questions can be deleted'
+      });
+    }
+    
+    await Question.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Scheduled question deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/admin/question/:id/reschedule - update scheduledFor datetime
+router.put('/question/:id/reschedule', adminAuth, async (req, res) => {
+  try {
+    const { scheduledFor } = req.body;
+    
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+    }
+    
+    if (question.status !== 'scheduled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only scheduled questions can be rescheduled'
+      });
+    }
+    
+    if (scheduledFor) {
+      const scheduledDate = new Date(scheduledFor);
+      if (isNaN(scheduledDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid scheduledFor datetime format'
+        });
+      }
+      
+      if (scheduledDate <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'scheduledFor must be in the future'
+        });
+      }
+      
+      question.scheduledFor = scheduledDate;
+    } else {
+      question.scheduledFor = null; // Will go live after current question closes
+    }
+    
+    await question.save();
+    
+    res.json({
+      success: true,
+      data: question,
+      message: 'Question rescheduled successfully'
     });
   } catch (error) {
     res.status(500).json({

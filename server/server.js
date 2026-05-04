@@ -99,7 +99,7 @@ const fuzzyMatch = (answer1, answer2) => {
   return false;
 };
 
-// Background job to auto-close questions
+// Background job to auto-close questions and activate scheduled ones
 const autoCloseQuestions = async () => {
   try {
     console.log('Checking for questions to auto-close...');
@@ -110,6 +110,8 @@ const autoCloseQuestions = async () => {
       revealAt: { $lte: new Date() },
       timerStatus: 'pending'
     });
+    
+    let hasClosedQuestions = false;
     
     for (const question of questionsToClose) {
       console.log(`Auto-closing question: ${question._id}`);
@@ -150,13 +152,64 @@ const autoCloseQuestions = async () => {
       await question.save();
       
       console.log(`Question ${question._id} auto-closed successfully`);
+      hasClosedQuestions = true;
     }
     
     if (questionsToClose.length === 0) {
       console.log('No questions to auto-close');
     }
+    
+    // After closing questions, check if we need to activate scheduled ones
+    if (hasClosedQuestions) {
+      await activateNextScheduledQuestion();
+    }
   } catch (error) {
     console.error('Error in auto-close job:', error);
+  }
+};
+
+// Function to activate the next scheduled question
+const activateNextScheduledQuestion = async () => {
+  try {
+    console.log('Checking for scheduled questions to activate...');
+    
+    const now = new Date();
+    
+    // First, check for scheduled questions with scheduledFor <= now
+    const readyScheduledQuestions = await Question.find({
+      status: 'scheduled',
+      scheduledFor: { $lte: now, $ne: null }
+    }).sort({ scheduledFor: 1 });
+    
+    if (readyScheduledQuestions.length > 0) {
+      // Activate the earliest ready question
+      const questionToActivate = readyScheduledQuestions[0];
+      questionToActivate.status = 'active';
+      await questionToActivate.save();
+      
+      console.log(`Activated scheduled question: ${questionToActivate._id}`);
+      return;
+    }
+    
+    // If no ready scheduled questions, check for queued ones (scheduledFor is null)
+    const queuedQuestions = await Question.find({
+      status: 'scheduled',
+      scheduledFor: null
+    }).sort({ createdAt: 1 });
+    
+    if (queuedQuestions.length > 0) {
+      // Activate the earliest created queued question
+      const questionToActivate = queuedQuestions[0];
+      questionToActivate.status = 'active';
+      await questionToActivate.save();
+      
+      console.log(`Activated queued question: ${questionToActivate._id}`);
+      return;
+    }
+    
+    console.log('No scheduled questions to activate');
+  } catch (error) {
+    console.error('Error activating scheduled question:', error);
   }
 };
 

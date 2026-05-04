@@ -14,6 +14,7 @@ const Admin = () => {
   const [newQuestion, setNewQuestion] = useState('')
   const [newAnswer, setNewAnswer] = useState('')
   const [newRevealAt, setNewRevealAt] = useState('')
+  const [newScheduledFor, setNewScheduledFor] = useState('')
   const [creating, setCreating] = useState(false)
   
   const [closing, setClosing] = useState(false)
@@ -30,6 +31,11 @@ const Admin = () => {
   const [updatingTimer, setUpdatingTimer] = useState(false)
   const [messages, setMessages] = useState({})
   const [adminPassword, setAdminPassword] = useState('')
+  const [scheduledQuestions, setScheduledQuestions] = useState([])
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
+  const [rescheduleQuestion, setRescheduleQuestion] = useState(null)
+  const [rescheduleDateTime, setRescheduleDateTime] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
 
   useEffect(() => {
     // Check if admin is authenticated from localStorage
@@ -111,6 +117,23 @@ const Admin = () => {
     setMessages(messageData)
   }
 
+  const fetchScheduledQuestions = async () => {
+    try {
+      const response = await fetch('/api/admin/questions/scheduled', {
+        headers: {
+          'x-admin-password': localStorage.getItem('adminPassword')
+        }
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setScheduledQuestions(data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching scheduled questions:', error)
+    }
+  }
+
   const fetchAdminData = async () => {
     try {
       // Fetch active question
@@ -143,6 +166,9 @@ const Admin = () => {
       if (historyData.success) {
         setPastQuestions(historyData.data.questions)
       }
+
+      // Fetch scheduled questions
+      await fetchScheduledQuestions()
     } catch (error) {
       console.error('Error fetching admin data:', error)
     }
@@ -211,6 +237,11 @@ const Admin = () => {
         requestBody.revealAt = newRevealAt.trim()
       }
 
+      // Add scheduledFor if provided
+      if (newScheduledFor.trim()) {
+        requestBody.scheduledFor = newScheduledFor.trim()
+      }
+
       const response = await fetch('/api/admin/question', {
         method: 'POST',
         headers: {
@@ -226,12 +257,30 @@ const Admin = () => {
         if (data.data.revealAt) {
           data.data.revealAt = new Date(data.data.revealAt)
         }
-        setMessage('Question created successfully!')
+        if (data.data.scheduledFor) {
+          data.data.scheduledFor = new Date(data.data.scheduledFor)
+        }
+        
+        if (data.data.status === 'active') {
+          setMessage('Question created successfully!')
+          setActiveQuestion(data.data)
+          setSubmissions([])
+        } else {
+          setMessage('Question scheduled successfully!')
+        }
+        
         setNewQuestion('')
         setNewAnswer('')
         setNewRevealAt('')
-        setActiveQuestion(data.data)
-        setSubmissions([])
+        setNewScheduledFor('')
+        
+        // Refresh scheduled questions list
+        await fetchScheduledQuestions()
+        
+        // If question is active, refresh admin data
+        if (data.data.status === 'active') {
+          await fetchAdminData()
+        }
       } else {
         setMessage(data.message || 'Error creating question')
       }
@@ -406,6 +455,90 @@ const Admin = () => {
     }
   }
 
+  const handleDeleteScheduledQuestion = async (questionId) => {
+    if (!confirm('Are you sure you want to delete this scheduled question?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/question/${questionId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-password': localStorage.getItem('adminPassword')
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setMessage('Scheduled question deleted successfully!')
+        await fetchScheduledQuestions()
+      } else {
+        setMessage(data.message || 'Error deleting scheduled question')
+      }
+    } catch (error) {
+      console.error('Error deleting scheduled question:', error)
+      setMessage('Error deleting scheduled question')
+    }
+  }
+
+  const handleRescheduleModal = (question) => {
+    setRescheduleQuestion(question)
+    const currentScheduledFor = question.scheduledFor 
+      ? new Date(question.scheduledFor).toISOString().slice(0, 16)
+      : ''
+    setRescheduleDateTime(currentScheduledFor)
+    setShowRescheduleModal(true)
+  }
+
+  const handleRescheduleQuestion = async (e) => {
+    e.preventDefault()
+    
+    if (!rescheduleQuestion) return
+
+    setRescheduling(true)
+    setMessage('')
+
+    try {
+      const requestBody = {}
+      
+      if (rescheduleDateTime.trim()) {
+        requestBody.scheduledFor = rescheduleDateTime.trim()
+      } else {
+        requestBody.scheduledFor = null
+      }
+
+      const response = await fetch(`/api/admin/question/${rescheduleQuestion._id}/reschedule`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': localStorage.getItem('adminPassword')
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        if (data.data.scheduledFor) {
+          data.data.scheduledFor = new Date(data.data.scheduledFor)
+        }
+        setMessage('Question rescheduled successfully!')
+        setShowRescheduleModal(false)
+        setRescheduleQuestion(null)
+        setRescheduleDateTime('')
+        await fetchScheduledQuestions()
+      } else {
+        setMessage(data.message || 'Error rescheduling question')
+      }
+    } catch (error) {
+      console.error('Error rescheduling question:', error)
+      setMessage('Error rescheduling question')
+    } finally {
+      setRescheduling(false)
+    }
+  }
+
   const handleDeleteMessage = async (messageId) => {
     try {
       const response = await fetch(`/api/admin/messages/${messageId}`, {
@@ -439,6 +572,40 @@ const Admin = () => {
       month: 'long',
       day: 'numeric'
     })
+  }
+
+  const getCountdown = (scheduledFor) => {
+    if (!scheduledFor) return null
+    
+    const now = new Date()
+    const scheduled = new Date(scheduledFor)
+    const distance = scheduled.getTime() - now.getTime()
+
+    if (distance < 0) return 'Overdue'
+
+    const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+
+    let countdownText = ''
+    if (days > 0) countdownText += `${days}d `
+    if (hours > 0 || days > 0) countdownText += `${hours}h `
+    if (minutes > 0 || hours > 0 || days > 0) countdownText += `${minutes}m `
+    countdownText += `${seconds}s`
+
+    return countdownText
+  }
+
+  const handleCancelTimer = () => {
+    setShowTimerModal(false)
+    setTimerRevealAt('')
+  }
+
+  const handleCancelReschedule = () => {
+    setShowRescheduleModal(false)
+    setRescheduleQuestion(null)
+    setRescheduleDateTime('')
   }
 
   if (!isAuthenticated) {
@@ -560,6 +727,24 @@ const Admin = () => {
                   </button>
                 </div>
                 
+                {/* Next up preview */}
+                {scheduledQuestions.length > 0 && (
+                  <div style={{
+                    backgroundColor: '#1a1a2e',
+                    border: '1px solid #16213e',
+                    borderRadius: '8px',
+                    padding: '0.75rem',
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ color: '#7b61ff', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      Next up:
+                    </div>
+                    <div style={{ color: 'white', fontSize: '0.9rem' }}>
+                      {scheduledQuestions[0].text.length > 80 ? scheduledQuestions[0].text.substring(0, 80) + '...' : scheduledQuestions[0].text}
+                    </div>
+                  </div>
+                )}
+                
                 {countdown && !countdown.includes('closed') && (() => {
                   // Get current time in GMT+3
                   const now = new Date()
@@ -661,54 +846,163 @@ const Admin = () => {
       <div className="card">
         <h2>Post New Question</h2>
         
-        {activeQuestion ? (
-          <div className="error-message">
-            Close the current question first before posting a new one.
+        {activeQuestion && !newScheduledFor && (
+          <div className="info-message">
+            This question will go live automatically after the current question closes
+          </div>
+        )}
+        
+        <form onSubmit={handleCreateQuestion}>
+          <div className="form-group">
+            <label htmlFor="newQuestion">Question Text</label>
+            <textarea
+              id="newQuestion"
+              value={newQuestion}
+              onChange={(e) => setNewQuestion(e.target.value)}
+              placeholder="Enter the question text"
+              rows={3}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="newAnswer">Correct Answer</label>
+            <input
+              type="text"
+              id="newAnswer"
+              value={newAnswer}
+              onChange={(e) => setNewAnswer(e.target.value)}
+              placeholder="Enter the correct answer"
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="newRevealAt">Auto-close at (optional)</label>
+            <input
+              type="datetime-local"
+              id="newRevealAt"
+              value={newRevealAt}
+              onChange={(e) => setNewRevealAt(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+              Set a future date and time for the question to auto-close
+            </small>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="newScheduledFor">Schedule For (optional)</label>
+            <input
+              type="datetime-local"
+              id="newScheduledFor"
+              value={newScheduledFor}
+              onChange={(e) => setNewScheduledFor(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+              Set a future date and time for the question to go live. If left empty:
+              {activeQuestion ? ' will go live after current question closes' : ' will go live immediately'}
+            </small>
+          </div>
+          
+          <button type="submit" className="btn btn-primary" disabled={creating}>
+            {creating ? 'Creating...' : 'Post Question'}
+          </button>
+        </form>
+      </div>
+
+      {/* Scheduled Questions Section */}
+      <div className="card">
+        <h2>Scheduled Questions</h2>
+        
+        {scheduledQuestions.length > 0 ? (
+          <div>
+            {scheduledQuestions.map((question) => (
+              <div key={question._id} className="scheduled-question-item" style={{
+                backgroundColor: '#1a1a2e',
+                border: '1px solid #16213e',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ color: '#00d4aa', margin: '0 0 0.5rem 0' }}>
+                      {question.text.length > 60 ? question.text.substring(0, 60) + '...' : question.text}
+                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      {question.scheduledFor ? (
+                        <span style={{
+                          backgroundColor: '#00d4aa',
+                          color: '#0a0a0a',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '1rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {new Date(question.scheduledFor).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span style={{
+                          backgroundColor: '#7b61ff',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '1rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          Next in queue
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: 'white', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                      <strong>Answer:</strong> {question.correctAnswer}
+                    </div>
+                    {question.scheduledFor && (
+                      <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                        <strong>Countdown:</strong> {getCountdown(question.scheduledFor)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleRescheduleModal(question)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        border: 'none',
+                        borderRadius: '0.25rem',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      Edit Schedule
+                    </button>
+                    <button
+                      onClick={() => handleDeleteScheduledQuestion(question._id)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        border: 'none',
+                        borderRadius: '0.25rem',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <form onSubmit={handleCreateQuestion}>
-            <div className="form-group">
-              <label htmlFor="newQuestion">Question Text</label>
-              <textarea
-                id="newQuestion"
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                placeholder="Enter the question text"
-                rows={3}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="newAnswer">Correct Answer</label>
-              <input
-                type="text"
-                id="newAnswer"
-                value={newAnswer}
-                onChange={(e) => setNewAnswer(e.target.value)}
-                placeholder="Enter the correct answer"
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="newRevealAt">Auto-close at (optional)</label>
-              <input
-                type="datetime-local"
-                id="newRevealAt"
-                value={newRevealAt}
-                onChange={(e) => setNewRevealAt(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
-              />
-              <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
-                Set a future date and time for the question to auto-close
-              </small>
-            </div>
-            
-            <button type="submit" className="btn btn-primary" disabled={creating}>
-              {creating ? 'Creating...' : 'Post Question'}
-            </button>
-          </form>
+          <div className="info-message">
+            No questions scheduled. Add one above!
+          </div>
         )}
       </div>
 
@@ -839,6 +1133,51 @@ const Admin = () => {
                   {updatingTimer ? 'Updating...' : 'Set Timer'}
                 </button>
                 <button type="button" onClick={handleCancelTimer} className="btn btn-secondary" disabled={updatingTimer}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ maxWidth: '400px', width: '90%' }}>
+            <h3>Reschedule Question</h3>
+            <form onSubmit={handleRescheduleQuestion}>
+              <div className="form-group">
+                <label htmlFor="rescheduleDateTime">Schedule For (optional)</label>
+                <input
+                  type="datetime-local"
+                  id="rescheduleDateTime"
+                  value={rescheduleDateTime}
+                  onChange={(e) => setRescheduleDateTime(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+                <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                  Set a future date and time for the question to go live. 
+                  If left empty, the question will go live after the current question closes.
+                </small>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={rescheduling}>
+                  {rescheduling ? 'Rescheduling...' : 'Reschedule'}
+                </button>
+                <button type="button" onClick={handleCancelReschedule} className="btn btn-secondary" disabled={rescheduling}>
                   Cancel
                 </button>
               </div>

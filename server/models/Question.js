@@ -13,12 +13,15 @@ const questionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'closed'],
+    enum: ['active', 'closed', 'scheduled'],
     default: 'active'
   },
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  scheduledFor: {
+    type: Date
   },
   revealedAt: {
     type: Date
