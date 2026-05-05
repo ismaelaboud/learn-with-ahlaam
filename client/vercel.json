@@ -5,7 +5,11 @@
       "destination": "https://learn-with-ahlaam.onrender.com/api/:path*"
     },
     {
-      "source": "/((?!api).*)",
+      "source": "/og/:path*",
+      "destination": "https://learn-with-ahlaam.onrender.com/og/:path*"
+    },
+    {
+      "source": "/((?!api|og).*)",
       "destination": "/index.html"
     }
   ]
