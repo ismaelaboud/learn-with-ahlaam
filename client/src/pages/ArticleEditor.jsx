@@ -18,6 +18,7 @@ const ArticleEditor = () => {
   const [articleCoverImage, setArticleCoverImage] = useState('')
   const [articleCategory, setArticleCategory] = useState('')
   const [articleQuestionId, setArticleQuestionId] = useState('')
+  const [currentArticleId, setCurrentArticleId] = useState('')
   
   // UI state
   const [activeTab, setActiveTab] = useState('write')
@@ -31,7 +32,7 @@ const ArticleEditor = () => {
   const categories = ['Islamic History', 'Fiqh', 'General Knowledge', 'Hadith', 'Quran', 'Other']
   const isNewArticle = id === 'new'
 
-  // Check authentication on mount
+  // Check authentication on mount and handle ID changes
   useEffect(() => {
     const savedAuth = localStorage.getItem('adminAuth')
     const savedPassword = localStorage.getItem('adminPassword')
@@ -39,9 +40,13 @@ const ArticleEditor = () => {
     if (savedAuth === 'true' && savedPassword) {
       setIsAuthenticated(true)
       setAuthChecked(true)
-      if (!isNewArticle) {
+      
+      // Set the current article ID (for new articles, this will be updated after creation)
+      if (id !== 'new') {
+        setCurrentArticleId(id)
         fetchArticle()
       }
+      
       fetchQuestions()
     } else {
       setAuthChecked(true)
@@ -71,17 +76,25 @@ const ArticleEditor = () => {
 
   const fetchQuestions = async () => {
     try {
-      const response = await fetch('/api/admin/questions/scheduled', {
+      console.log('Fetching questions from /api/questions/history...')
+      const response = await fetch('/api/questions/history', {
         headers: {
           'x-admin-password': localStorage.getItem('adminPassword')
         }
       })
+      console.log('Response status:', response.status)
       const data = await response.json()
-      if (data.success) {
-        setQuestions(data.data)
+      console.log('Response data:', data)
+      if (data.success && data.data && Array.isArray(data.data.questions)) {
+        console.log('Setting questions:', data.data.questions)
+        setQuestions(data.data.questions)
+      } else {
+        console.log('No questions found or invalid response')
+        setQuestions([])
       }
     } catch (error) {
       console.error('Error fetching questions:', error)
+      setQuestions([])
     }
   }
 
@@ -139,7 +152,7 @@ const ArticleEditor = () => {
       if (articleQuestionId) articleData.questionId = articleQuestionId
 
       let response
-      if (isNewArticle) {
+      if (isNewArticle || !currentArticleId) {
         response = await fetch('/api/admin/articles', {
           method: 'POST',
           headers: {
@@ -149,7 +162,7 @@ const ArticleEditor = () => {
           body: JSON.stringify(articleData)
         })
       } else {
-        response = await fetch(`/api/admin/articles/${id}`, {
+        response = await fetch(`/api/admin/articles/${currentArticleId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -168,8 +181,9 @@ const ArticleEditor = () => {
           showToast('Draft saved successfully!', 'success')
         }
         
-        // If creating new article, update URL to edit mode
-        if (isNewArticle) {
+        // If creating new article, update URL to edit mode and set currentArticleId
+        if (isNewArticle || !currentArticleId) {
+          setCurrentArticleId(data.data._id)
           navigate(`/admin/articles/edit/${data.data._id}`, { replace: true })
         }
       } else {
@@ -207,7 +221,7 @@ const ArticleEditor = () => {
       if (articleQuestionId) articleData.questionId = articleQuestionId
 
       let response
-      if (isNewArticle) {
+      if (isNewArticle || !currentArticleId) {
         response = await fetch('/api/admin/articles', {
           method: 'POST',
           headers: {
@@ -217,7 +231,7 @@ const ArticleEditor = () => {
           body: JSON.stringify(articleData)
         })
       } else {
-        response = await fetch(`/api/admin/articles/${id}`, {
+        response = await fetch(`/api/admin/articles/${currentArticleId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -773,11 +787,11 @@ const ArticleEditor = () => {
               }}
             >
               <option value="">No linked question</option>
-              {questions.map(q => (
+              {Array.isArray(questions) ? questions.map(q => (
                 <option key={q._id} value={q._id}>
-                  {q.text.length > 50 ? q.text.substring(0, 50) + '...' : q.text}
+                  {q.text && q.text.length > 60 ? q.text.substring(0, 60) + '...' : (q.text || 'Untitled Question')}
                 </option>
-              ))}
+              )) : null}
             </select>
           </div>
         </div>
