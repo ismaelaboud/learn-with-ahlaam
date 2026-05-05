@@ -4,6 +4,7 @@ const Question = require('../models/Question');
 const Submission = require('../models/Submission');
 const Participant = require('../models/Participant');
 const Message = require('../models/Message');
+const Article = require('../models/Article');
 
 // GET /api/question/active - returns active question (WITHOUT correctAnswer field)
 router.get('/question/active', async (req, res) => {
@@ -288,6 +289,89 @@ router.get('/messages/:questionId', async (req, res) => {
     res.json({
       success: true,
       data: messages
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/articles - return all published articles
+router.get('/articles', async (req, res) => {
+  try {
+    const { category, standalone } = req.query;
+    
+    const query = { status: 'published' };
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (standalone === 'true') {
+      query.questionId = { $exists: false };
+    }
+    
+    const articles = await Article.find(query)
+      .populate('questionId', 'text')
+      .sort({ publishedAt: -1 });
+    
+    res.json({
+      success: true,
+      data: articles
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/articles/:slug - return single published article by slug
+router.get('/articles/:slug', async (req, res) => {
+  try {
+    const article = await Article.findOne({ 
+      slug: req.params.slug, 
+      status: 'published' 
+    })
+      .populate('questionId', 'text');
+    
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: article
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/articles/question/:questionId - return published article linked to a specific question
+router.get('/articles/question/:questionId', async (req, res) => {
+  try {
+    const article = await Article.findOne({ 
+      questionId: req.params.questionId,
+      status: 'published'
+    })
+      .populate('questionId', 'text');
+    
+    res.json({
+      success: true,
+      data: article
     });
   } catch (error) {
     res.status(500).json({

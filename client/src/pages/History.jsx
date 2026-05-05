@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import ChatRoom from '../components/ChatRoom'
+import { FaBook, FaArrowRight } from 'react-icons/fa'
 
 const History = () => {
   const [questions, setQuestions] = useState([])
@@ -10,6 +11,7 @@ const History = () => {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [openChatRoom, setOpenChatRoom] = useState(null)
   const [messageCounts, setMessageCounts] = useState({})
+  const [linkedArticles, setLinkedArticles] = useState({})
 
   useEffect(() => {
     fetchHistory()
@@ -34,6 +36,24 @@ const History = () => {
     setMessageCounts(counts);
   };
 
+  const fetchLinkedArticles = async () => {
+    const articles = {};
+    
+    for (const question of questions) {
+      try {
+        const response = await fetch(`/api/articles/question/${question._id}`);
+        const data = await response.json();
+        if (data.success && data.data) {
+          articles[question._id] = data.data;
+        }
+      } catch (error) {
+        console.error(`Error fetching linked article for question ${question._id}:`, error);
+      }
+    }
+    
+    setLinkedArticles(articles);
+  };
+
   const fetchHistory = async () => {
     try {
       const response = await fetch('/api/questions/history')
@@ -49,10 +69,11 @@ const History = () => {
     }
   };
 
-  // Fetch message counts when questions are loaded
+  // Fetch message counts and linked articles when questions are loaded
   useEffect(() => {
     if (questions.length > 0) {
       fetchMessageCounts();
+      fetchLinkedArticles();
     }
   }, [questions]);
 
@@ -121,6 +142,7 @@ const History = () => {
       <nav className="nav-links">
         <Link to="/">Today's Question</Link>
         <Link to="/leaderboard">Leaderboard</Link>
+        <Link to="/articles">Articles</Link>
         <Link to="/history" className="active">History</Link>
       </nav>
 
@@ -150,6 +172,55 @@ const History = () => {
                     <div className="stat-label">Incorrect</div>
                   </div>
                 </div>
+
+                {/* Linked Article Card */}
+                {linkedArticles[question._id] && (
+                  <div style={{
+                    marginTop: '1rem',
+                    padding: '1rem',
+                    backgroundColor: 'rgba(0, 212, 170, 0.08)',
+                    border: '1px solid rgba(0, 212, 170, 0.2)',
+                    borderRadius: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <FaBook style={{ color: '#00d4aa' }} />
+                      <span style={{ fontWeight: 'bold', color: '#00d4aa' }}>
+                        Read the full explanation
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <span style={{ fontWeight: 'bold', color: 'white' }}>
+                        {linkedArticles[question._id].title}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'rgba(224, 247, 244, 0.6)', fontSize: '0.875rem' }}>
+                        {linkedArticles[question._id].readTime} min read
+                      </span>
+                      <Link
+                        to={`/articles/${linkedArticles[question._id].slug}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#00d4aa',
+                          color: '#0a0f0a',
+                          textDecoration: 'none',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.875rem',
+                          fontWeight: 'bold',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = '#00b894'}
+                        onMouseOut={(e) => e.target.style.backgroundColor = '#00d4aa'}
+                      >
+                        Read Article
+                        <FaArrowRight />
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {/* Discussion Button */}
                 <div style={{ marginTop: '1rem' }}>

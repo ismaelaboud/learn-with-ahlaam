@@ -255,6 +255,7 @@ const Home = () => {
       <nav className="nav-links">
         <Link to="/" className="active">Today's Question</Link>
         <Link to="/leaderboard">Leaderboard</Link>
+        <Link to="/articles">Articles</Link>
         <Link to="/history">History</Link>
       </nav>
 

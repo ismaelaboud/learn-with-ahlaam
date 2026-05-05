@@ -68,6 +68,7 @@ const Leaderboard = () => {
       <nav className="nav-links">
         <Link to="/">Today's Question</Link>
         <Link to="/leaderboard" className="active">Leaderboard</Link>
+        <Link to="/articles">Articles</Link>
         <Link to="/history">History</Link>
       </nav>
 

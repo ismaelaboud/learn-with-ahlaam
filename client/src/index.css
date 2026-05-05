@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg-primary: #040d14;
   --bg-secondary: #0a1f2e;
@@ -821,6 +825,29 @@ textarea:focus {
     opacity: 1;
     transform: translate(-50%, -50%);
   }
+}
+
+/* Datetime Picker Styling */
+input[type="datetime-local"] {
+  background-color: #0a1f2e;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  border-radius: 8px;
+  color: #e0f7f4;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
+input[type="datetime-local"]:focus {
+  border-color: #00d4aa;
+  outline: none;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) sepia(1) saturate(5) hue-rotate(120deg);
+  cursor: pointer;
 }
 
 /* Desktop Responsive Styles */

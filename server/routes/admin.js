@@ -4,6 +4,7 @@ const Question = require('../models/Question');
 const Submission = require('../models/Submission');
 const Participant = require('../models/Participant');
 const Message = require('../models/Message');
+const Article = require('../models/Article');
 const adminAuth = require('../middleware/adminAuth');
 
 // Helper function for fuzzy matching
@@ -527,6 +528,160 @@ router.delete('/messages/:messageId', adminAuth, async (req, res) => {
     res.json({
       success: true,
       message: 'Message deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/admin/articles - create new article
+router.post('/articles', adminAuth, async (req, res) => {
+  try {
+    const { title, content, coverImage, questionId, category, status } = req.body;
+    
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and content are required'
+      });
+    }
+    
+    const articleData = {
+      title: title.trim(),
+      content: content.trim()
+    };
+    
+    if (coverImage) articleData.coverImage = coverImage.trim();
+    if (questionId) articleData.questionId = questionId;
+    if (category) articleData.category = category;
+    if (status) articleData.status = status;
+    
+    const article = new Article(articleData);
+    await article.save();
+    
+    res.status(201).json({
+      success: true,
+      data: article,
+      message: 'Article created successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/admin/articles - return all articles
+router.get('/articles', adminAuth, async (req, res) => {
+  try {
+    const articles = await Article.find()
+      .populate('questionId', 'text')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: articles
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/admin/articles/:id - return single article by id
+router.get('/articles/:id', adminAuth, async (req, res) => {
+  try {
+    const article = await Article.findById(req.params.id)
+      .populate('questionId', 'text');
+    
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: article
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/admin/articles/:id - update article
+router.put('/articles/:id', adminAuth, async (req, res) => {
+  try {
+    const { title, content, coverImage, questionId, category, status } = req.body;
+    
+    const article = await Article.findById(req.params.id);
+    
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article not found'
+      });
+    }
+    
+    if (title) article.title = title.trim();
+    if (content) article.content = content.trim();
+    if (coverImage !== undefined) article.coverImage = coverImage ? coverImage.trim() : undefined;
+    if (questionId !== undefined) article.questionId = questionId;
+    if (category !== undefined) article.category = category;
+    if (status !== undefined) article.status = status;
+    
+    // If status changes to published and publishedAt is null, set it
+    if (status === 'published' && !article.publishedAt) {
+      article.publishedAt = new Date();
+    }
+    
+    await article.save();
+    
+    res.json({
+      success: true,
+      data: article,
+      message: 'Article updated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/admin/articles/:id - delete article
+router.delete('/articles/:id', adminAuth, async (req, res) => {
+  try {
+    const article = await Article.findById(req.params.id);
+    
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article not found'
+      });
+    }
+    
+    await Article.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Article deleted successfully'
     });
   } catch (error) {
     res.status(500).json({

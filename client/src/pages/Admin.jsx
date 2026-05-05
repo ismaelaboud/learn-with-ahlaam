@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { FaBold, FaItalic, FaHeading, FaQuoteLeft, FaListUl, FaListOl, FaLink } from 'react-icons/fa'
+import ReactMarkdown from 'react-markdown'
 
 const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -36,6 +38,11 @@ const Admin = () => {
   const [rescheduleQuestion, setRescheduleQuestion] = useState(null)
   const [rescheduleDateTime, setRescheduleDateTime] = useState('')
   const [rescheduling, setRescheduling] = useState(false)
+  
+  // Articles state (minimal - for list display and deletion only)
+  const [articles, setArticles] = useState([])
+  const [deletingArticle, setDeletingArticle] = useState(null)
+  
 
   useEffect(() => {
     // Check if admin is authenticated from localStorage
@@ -169,6 +176,10 @@ const Admin = () => {
 
       // Fetch scheduled questions
       await fetchScheduledQuestions()
+
+      // Fetch articles
+      await fetchArticles()
+
     } catch (error) {
       console.error('Error fetching admin data:', error)
     }
@@ -608,6 +619,56 @@ const Admin = () => {
     setRescheduleDateTime('')
   }
 
+  // Articles functions (minimal - for list display and deletion only)
+  const fetchArticles = async () => {
+    try {
+      const response = await fetch('/api/admin/articles', {
+        headers: {
+          'x-admin-password': localStorage.getItem('adminPassword')
+        }
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setArticles(data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching articles:', error)
+    }
+  }
+
+  const handleDeleteArticle = async (articleId) => {
+    if (!confirm('Are you sure you want to delete this article?')) {
+      return
+    }
+
+    setDeletingArticle(articleId)
+    try {
+      const response = await fetch(`/api/admin/articles/${articleId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-password': localStorage.getItem('adminPassword')
+        }
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        await fetchArticles()
+        alert('Article deleted successfully!')
+      } else {
+        alert(data.message || 'Error deleting article')
+      }
+    } catch (error) {
+      console.error('Error deleting article:', error)
+      alert('Error deleting article')
+    } finally {
+      setDeletingArticle(null)
+    }
+  }
+
+
+
   if (!isAuthenticated) {
     return (
       <div className="container">
@@ -885,6 +946,20 @@ const Admin = () => {
               value={newRevealAt}
               onChange={(e) => setNewRevealAt(e.target.value)}
               min={new Date().toISOString().slice(0, 16)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#0a1f2e',
+                border: '1px solid rgba(0, 212, 170, 0.3)',
+                borderRadius: '8px',
+                color: '#e0f7f4',
+                fontSize: '1rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+                colorScheme: 'dark'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#00d4aa'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(0, 212, 170, 0.3)'}
             />
             <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
               Set a future date and time for the question to auto-close
@@ -899,6 +974,20 @@ const Admin = () => {
               value={newScheduledFor}
               onChange={(e) => setNewScheduledFor(e.target.value)}
               min={new Date().toISOString().slice(0, 16)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#0a1f2e',
+                border: '1px solid rgba(0, 212, 170, 0.3)',
+                borderRadius: '8px',
+                color: '#e0f7f4',
+                fontSize: '1rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+                colorScheme: 'dark'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#00d4aa'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(0, 212, 170, 0.3)'}
             />
             <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
               Set a future date and time for the question to go live. If left empty:
@@ -1096,6 +1185,160 @@ const Admin = () => {
         )}
       </div>
 
+      {/* Articles Section */}
+      <div className="card">
+        <h2>Articles</h2>
+        
+        {/* Write New Article Button */}
+        <div style={{ marginBottom: '2rem' }}>
+          <Link
+            to="/admin/articles/new"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: 'linear-gradient(135deg, #00d4aa, #7b61ff)',
+              color: 'white',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '1rem',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 12px rgba(0,212,170,0.3)'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 6px 16px rgba(0,212,170,0.4)'
+            }}
+            onMouseOut={(e) => {
+              e.target.style.transform = 'translateY(0)'
+              e.target.style.boxShadow = '0 4px 12px rgba(0,212,170,0.3)'
+            }}
+          >
+            ✍️ Write New Article
+          </Link>
+        </div>
+
+        {/* Articles List */}
+        <div>
+          <h3 style={{ marginBottom: '1rem' }}>All Articles</h3>
+          
+          {articles.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Title</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Category</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Status</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Linked Question</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Read Time</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--text-secondary)' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {articles.map((article) => (
+                    <tr key={article._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem', maxWidth: '200px' }}>
+                        <div style={{ fontWeight: 'bold', color: 'white' }}>
+                          {article.title.length > 30 ? article.title.substring(0, 30) + '...' : article.title}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        {article.category ? (
+                          <span style={{
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            backgroundColor: '#00d4aa20',
+                            color: '#00d4aa'
+                          }}>
+                            {article.category}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.75rem',
+                          backgroundColor: article.status === 'published' ? '#10b98120' : '#6b728020',
+                          color: article.status === 'published' ? '#10b981' : '#6b7280'
+                        }}>
+                          {article.status === 'published' ? 'Published' : 'Draft'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem', maxWidth: '150px' }}>
+                        {article.questionId ? (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                            {article.questionId.text.length > 25 ? article.questionId.text.substring(0, 25) + '...' : article.questionId.text}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {article.readTime} min
+                      </td>
+                      <td style={{ padding: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {formatDate(article.createdAt)}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <Link
+                            to={`/admin/articles/edit/${article._id}`}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              border: '1px solid #00d4aa',
+                              borderRadius: '0.25rem',
+                              backgroundColor: 'transparent',
+                              color: '#00d4aa',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              textDecoration: 'none',
+                              display: 'inline-block'
+                            }}
+                            onMouseOver={(e) => { e.target.style.backgroundColor = '#00d4aa20' }}
+                            onMouseOut={(e) => { e.target.style.backgroundColor = 'transparent' }}
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteArticle(article._id)}
+                            disabled={deletingArticle === article._id}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              border: '1px solid #dc2626',
+                              borderRadius: '0.25rem',
+                              backgroundColor: 'transparent',
+                              color: '#dc2626',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem'
+                            }}
+                            onMouseOver={(e) => { e.target.style.backgroundColor = '#dc262620' }}
+                            onMouseOut={(e) => { e.target.style.backgroundColor = 'transparent' }}
+                          >
+                            {deletingArticle === article._id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="info-message">
+              No articles yet. Create your first article above!
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Timer Modal */}
       {showTimerModal && (
         <div style={{
@@ -1122,6 +1365,20 @@ const Admin = () => {
                   onChange={(e) => setTimerRevealAt(e.target.value)}
                   min={new Date().toISOString().slice(0, 16)}
                   required
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#0a1f2e',
+                    border: '1px solid rgba(0, 212, 170, 0.3)',
+                    borderRadius: '8px',
+                    color: '#e0f7f4',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    colorScheme: 'dark'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#00d4aa'}
+                  onBlur={(e) => e.target.style.borderColor = 'rgba(0, 212, 170, 0.3)'}
                 />
                 <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
                   Set a future date and time for the question to auto-close
@@ -1166,6 +1423,20 @@ const Admin = () => {
                   value={rescheduleDateTime}
                   onChange={(e) => setRescheduleDateTime(e.target.value)}
                   min={new Date().toISOString().slice(0, 16)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#0a1f2e',
+                    border: '1px solid rgba(0, 212, 170, 0.3)',
+                    borderRadius: '8px',
+                    color: '#e0f7f4',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    colorScheme: 'dark'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#00d4aa'}
+                  onBlur={(e) => e.target.style.borderColor = 'rgba(0, 212, 170, 0.3)'}
                 />
                 <small style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
                   Set a future date and time for the question to go live. 
