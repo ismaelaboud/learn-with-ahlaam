@@ -125,7 +125,6 @@ const Articles = () => {
                 borderRadius: '9999px',
                 fontSize: '0.875rem',
                 fontWeight: '500',
-                border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 whiteSpace: 'nowrap',
