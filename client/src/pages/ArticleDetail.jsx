@@ -44,7 +44,7 @@ const ArticleDetail = () => {
 
   const shareOnWhatsApp = () => {
     const ogUrl = `https://learn-with-ahlaam.onrender.com/og/articles/${article.slug}`
-    const text = `Check out this article on Learn with Ahlaam 🧠\n\n${article.title}\n\n${ogUrl}`
+    const text = `Check out this article on Learn with Ahlaam \n\n${article.title}\n\n${ogUrl}`
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 

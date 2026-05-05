@@ -273,6 +273,60 @@ io.on('connection', (socket) => {
 
 // Client is deployed separately on Vercel, no static file serving needed
 
+// OG meta tags route for social sharing
+app.get('/og/articles/:slug', async (req, res) => {
+  try {
+    const Article = require('./models/Article')
+    const article = await Article.findOne({ 
+      slug: req.params.slug,
+      status: 'published'
+    })
+
+    if (!article) {
+      return res.status(404).send('Article not found')
+    }
+
+    const excerpt = article.content
+      .replace(/[#*>\-\[\]`]/g, '')
+      .trim()
+      .substring(0, 160)
+
+    const coverImage = article.coverImage || 
+      'https://learn-with-ahlaam.vercel.app/og-image.png'
+
+    const articleUrl = `https://learn-with-ahlaam.vercel.app/articles/${article.slug}` 
+
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>${article.title} — Learn with Ahlaam</title>
+    <meta name="description" content="${excerpt}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Learn with Ahlaam" />
+    <meta property="og:title" content="${article.title}" />
+    <meta property="og:description" content="${excerpt}" />
+    <meta property="og:url" content="${articleUrl}" />
+    <meta property="og:image" content="${coverImage}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${article.title}" />
+    <meta name="twitter:description" content="${excerpt}" />
+    <meta name="twitter:image" content="${coverImage}" />
+    <meta http-equiv="refresh" content="0;url=${articleUrl}" />
+    <script>window.location.href = "${articleUrl}";</script>
+  </head>
+  <body><p>Redirecting...</p></body>
+</html>`
+
+    res.setHeader('Content-Type', 'text/html')
+    res.send(html)
+  } catch (error) {
+    res.status(500).send('Server error')
+  }
+})
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -282,7 +336,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
+// 404 handler must come AFTER this route
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,

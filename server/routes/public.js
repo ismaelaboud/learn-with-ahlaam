@@ -6,65 +6,6 @@ const Participant = require('../models/Participant');
 const Message = require('../models/Message');
 const Article = require('../models/Article');
 
-// GET /og/articles/:slug - serve HTML with OG meta tags for article sharing
-router.get('/og/articles/:slug', async (req, res) => {
-  try {
-    const article = await Article.findOne({ 
-      slug: req.params.slug, 
-      status: 'published' 
-    });
-    
-    if (!article) {
-      return res.status(404).send('Article not found');
-    }
-    
-    // Create excerpt from content
-    const excerpt = article.content
-      .replace(/[#*>\-\[\]]/g, '')
-      .trim()
-      .substring(0, 160);
-    
-    const html = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>${article.title} — Learn with Ahlaam</title>
-    <meta name="description" content="${excerpt}" />
-    
-    <!-- Open Graph -->
-    <meta property="og:type" content="article" />
-    <meta property="og:site_name" content="Learn with Ahlaam" />
-    <meta property="og:title" content="${article.title}" />
-    <meta property="og:description" content="${excerpt}" />
-    <meta property="og:url" content="https://learn-with-ahlaam.vercel.app/articles/${article.slug}" />
-    <meta property="og:image" content="${article.coverImage || 'https://learn-with-ahlaam.vercel.app/og-image.png'}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${article.title}" />
-    <meta name="twitter:description" content="${excerpt}" />
-    <meta name="twitter:image" content="${article.coverImage || 'https://learn-with-ahlaam.vercel.app/og-image.png'}" />
-    
-    <!-- Redirect to actual React page after crawlers read meta -->
-    <meta http-equiv="refresh" content="0;url=https://learn-with-ahlaam.vercel.app/articles/${article.slug}" />
-    <script>
-      window.location.href = "https://learn-with-ahlaam.vercel.app/articles/${article.slug}";
-    </script>
-  </head>
-  <body>
-    <p>Redirecting to article...</p>
-  </body>
-</html>`;
-    
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-  } catch (error) {
-    res.status(500).send('Server error');
-  }
-});
-
 // GET /api/question/active - returns active question (WITHOUT correctAnswer field)
 router.get('/question/active', async (req, res) => {
   try {
