@@ -199,24 +199,24 @@ const Admin = () => {
 
     try {
       // Test authentication by trying to access admin endpoint
-      const response = await fetch('/api/admin/question', {
-        method: 'POST',
+      const response = await fetch('/api/admin/questions/scheduled', {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           'x-admin-password': password
-        },
-        body: JSON.stringify({ text: 'test', correctAnswer: 'test' })
+        }
       })
 
       if (response.status === 401) {
         setAuthError('Invalid password')
-      } else if (response.status === 400) {
-        // Authentication successful, but request failed (expected)
+      } else if (response.ok) {
+        // Authentication successful
         setIsAuthenticated(true)
         setAdminPassword(password)
         localStorage.setItem('adminAuth', 'true')
         localStorage.setItem('adminPassword', password)
         fetchAdminData()
+      } else {
+        setAuthError('Authentication failed')
       }
     } catch (error) {
       console.error('Authentication error:', error)

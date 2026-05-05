@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const cron = require('node-cron');
 const http = require('http');
 const { Server } = require('socket.io');
 
@@ -159,8 +158,15 @@ const autoCloseQuestions = async () => {
       console.log('No questions to auto-close');
     }
     
-    // After closing questions, check if we need to activate scheduled ones
-    if (hasClosedQuestions) {
+    // Check if there are currently no active questions
+    const activeQuestions = await Question.find({ status: 'active' });
+    
+    // Always check for scheduled questions to activate if there are no active questions
+    if (activeQuestions.length === 0) {
+      console.log('No active questions found, checking scheduled questions...');
+      await activateNextScheduledQuestion();
+    } else if (hasClosedQuestions) {
+      // Also check after closing questions to maintain flow
       await activateNextScheduledQuestion();
     }
   } catch (error) {
@@ -213,10 +219,10 @@ const activateNextScheduledQuestion = async () => {
   }
 };
 
-// Schedule the job to run every minute
-cron.schedule('* * * * *', autoCloseQuestions);
+// Use setInterval instead of cron for more reliable execution
+setInterval(autoCloseQuestions, 60000); // Run every 60 seconds
 
-console.log('Background job scheduled: Auto-close questions every minute');
+console.log('Background job started: Auto-close questions every minute');
 
 // Socket.io event handlers
 io.on('connection', (socket) => {
