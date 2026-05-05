@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { FaClock, FaUser, FaArrowLeft, FaShare, FaWhatsapp } from 'react-icons/fa'
+import { FaClock, FaUser, FaArrowLeft, FaShare, FaWhatsapp, FaCopy, FaLink } from 'react-icons/fa'
 
 const ArticleDetail = () => {
   const { slug } = useParams()
@@ -43,9 +43,20 @@ const ArticleDetail = () => {
   }
 
   const shareOnWhatsApp = () => {
-    const url = window.location.href
-    const text = `Check out this article: ${article.title}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank')
+    const ogUrl = `https://learn-with-ahlaam.onrender.com/og/articles/${article.slug}`
+    const text = `Check out this article on Learn with Ahlaam 🧠\n\n${article.title}\n\n${ogUrl}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  const copyLink = async () => {
+    const ogUrl = `https://learn-with-ahlaam.onrender.com/og/articles/${article.slug}`
+    try {
+      await navigator.clipboard.writeText(ogUrl)
+      // You could add a toast notification here
+      alert('Link copied to clipboard!')
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+    }
   }
 
   if (loading) {
@@ -216,27 +227,52 @@ const ArticleDetail = () => {
             <span>{formatDate(article.publishedAt)}</span>
           </div>
           
-          {/* Share Button */}
-          <button
-            onClick={shareOnWhatsApp}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: '#25D366',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              transition: 'background-color 0.3s ease'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#128C7E'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#25D366'}
-          >
-            <FaWhatsapp />
-            Share
-          </button>
+          {/* Share Buttons */}
+          <div style={{
+            display: 'flex',
+            gap: '0.5rem'
+          }}>
+            <button
+              onClick={shareOnWhatsApp}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#25D366',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                transition: 'background-color 0.3s ease'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#128C7E'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#25D366'}
+            >
+              <FaWhatsapp />
+              Share
+            </button>
+            <button
+              onClick={copyLink}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#00d4aa',
+                color: '#0a0f0a',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                transition: 'background-color 0.3s ease'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#00b894'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#00d4aa'}
+            >
+              <FaCopy />
+              Copy Link
+            </button>
+          </div>
         </div>
       </div>
 
